@@ -1,0 +1,71 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Check if the user is signed in
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Check if the user is the admin (change this email if needed)
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.email == "vanem4910@gmail.com";
+    }
+
+    // Check if the user is accessing their own data
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // --- Users Collection ---
+    // Users can read/write their own profiles.
+    // Allow read globally for Leaderboard (only balance/name are used).
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin() || isSignedIn();
+      allow write: if isOwner(userId) || isAdmin();
+    }
+
+    // --- Tasks Collection ---
+    // Anyone can read active tasks. Admin can modify tasks.
+    match /tasks/{taskId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // --- Task Requests Collection ---
+    // Users can submit proof and read their own. Admin reviews them.
+    match /task_requests/{reqId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // --- Transactions Collection ---
+    // Users can read their own transactions. Users create them upon earnings/withdrawals. Admin can manage.
+    match /transactions/{txId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // --- Withdrawals Collection ---
+    match /withdrawals/{reqId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // --- SMS & WhatsApp Requests ---
+    match /sms_requests/{reqId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    match /whatsapp_requests/{reqId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+  }
+}
